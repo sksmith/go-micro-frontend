@@ -32,61 +32,70 @@ const ProductDash = () => {
     const [isFetchingReservations, setIsFetchingReservations] = useState(false);
     const [products, setProducts] = useState<ProductInventory[]>([]);
     const [reservations, setReservations] = useState<Reservation[]>([]);
-    const ws = useRef<WebSocket | null>(null);
+    const wsInv = useRef<WebSocket | null>(null);
+    const wsRes = useRef<WebSocket | null>(null);
 
     let headers = new Headers();
     let auth = Buffer.from("admin:admin").toString("base64");
     headers.append("Authorization", "Basic " + auth);
 
-    function useInterval(callback: () => any) {
-        const savedCallback = useRef<() => any>();
-
-        useEffect(() => {
-            savedCallback.current = callback;
-        });
-
-        useEffect(() => {
-            function tick() {
-                if (savedCallback.current) {
-                    savedCallback.current();
-                }
-            }
-
-            let id = setInterval(tick, 250);
-            return () => clearInterval(id);
-        }, []);
-    }
-
     useEffect(() => {
         FetchInventory();
         FetchReservations();
         SubscribeInventory();
+        SubscribeReservations();
     }, []);
 
     useEffect(() => {
-        if (!ws.current) return;
+        if (wsInv.current) {
+            wsInv.current.onmessage = e => {
+                console.log("received product message");
+                const product = JSON.parse(e.data);
+                const idx = products.findIndex((p) => p.sku === product.sku);
+                let updatedProducts = [...products] as ProductInventory[];
+    
+                if (idx === -1) {
+                    updatedProducts.push(product);
+                } else {
+                    updatedProducts[idx] = product;
+                }
 
-        ws.current.onmessage = e => {
-            const product = JSON.parse(e.data);
-            const idx = products.findIndex((p) => p.sku === product.sku);
-            let updatedProducts = [...products] as ProductInventory[];
+                console.log("updated products", updatedProducts);
+                setProducts(updatedProducts);
+            };
+        }
+        if (wsRes.current) {
+            wsRes.current.onmessage = e => {
+                console.log("received reservation message");
+                const reservation = JSON.parse(e.data);
+                const idx = reservations.findIndex((r) => r.id === reservation.id);
+                let updatedReservations = [...reservations] as Reservation[];
+    
+                if (idx === -1) {
+                    updatedReservations.push(reservation);
+                } else {
+                    updatedReservations[idx] = reservation;
+                }
 
-            if (idx === -1) {
-                updatedProducts.push(product);
-            } else {
-                updatedProducts[idx] = product;
-            }
-
-            console.log("products", products);
-            console.log("updated products", updatedProducts);
-            setProducts(updatedProducts);
-        };
+                console.log("updated reservations", updatedReservations);
+                setReservations(updatedReservations);
+            };
+        }
+        
     });
 
     const SubscribeInventory = () => {
-        ws.current = new WebSocket('ws://localhost:8080/api/v1/inventory/subscribe');
-        ws.current?.addEventListener('open', (event) => ws.current?.send('Hello Server!'));
-        ws.current?.addEventListener('close', (event) => console.log('The connection has been closed'));
+        console.log("subscribing to inventory");
+        wsInv.current = new WebSocket('ws://localhost:8080/api/v1/inventory/subscribe');
+        wsInv.current.onclose = (event) => console.log('subscription to inventory closed');
+        console.log("subscribed to inventory");
+    }
+
+    const SubscribeReservations = () => {
+        console.log("subscribing to reservations");
+        wsRes.current = new WebSocket('ws://localhost:8080/api/v1/reservation/subscribe');
+        wsRes.current.onclose = (event) => console.log('subscription to reservations closed');
+        console.log("subscribed to reservations");
     }
 
     const FetchInventory = () => {
@@ -130,9 +139,6 @@ const ProductDash = () => {
                 }
             )
     }
-
-    // useInterval(FetchInventory)
-    // useInterval(FetchReservations)
 
     if (error) {
         return <div>Error: {error.error}</div>;

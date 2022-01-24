@@ -1,9 +1,6 @@
 import './App.css';
 import { useEffect, useState } from 'react';
-import useDocumentClass from './hooks/toggle'
 import ProductDash from './component/ProductDash';
-import ProductForm from './component/ProductForm';
-import { Product } from './model/Product';
 
 function App() {
 

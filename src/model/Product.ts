@@ -1,5 +1,3 @@
-import React from 'react';
-
 export interface Product {
     sku: string
     upc: string

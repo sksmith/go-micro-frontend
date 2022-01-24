@@ -1,5 +1,3 @@
-import React from 'react';
-
 export enum BadgeSize {
     XSmall = 1,
     Small,
