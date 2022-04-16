@@ -28,22 +28,58 @@ interface ErrorResponse {
 
 const ProductDash = () => {
     const [error, setError] = useState<ErrorResponse | null>(null);
-    const [isFetchingInventory, setIsFetchingInventory] = useState(false);
-    const [isFetchingReservations, setIsFetchingReservations] = useState(false);
     const [products, setProducts] = useState<ProductInventory[]>([]);
     const [reservations, setReservations] = useState<Reservation[]>([]);
     const wsInv = useRef<WebSocket | null>(null);
     const wsRes = useRef<WebSocket | null>(null);
 
-    let headers = new Headers();
-    let auth = Buffer.from("admin:admin").toString("base64");
-    headers.append("Authorization", "Basic " + auth);
+    const fetchProducts = () => {
+        let headers = new Headers();
+        let auth = Buffer.from("admin:admin").toString("base64");
+        headers.append("Authorization", "Basic " + auth);
+
+        fetch("http://localhost:8080/api/v1/inventory", { method: "GET", headers: headers })
+            .then(res => res.json())
+            .then(
+                (result) => {
+                    setProducts(result);
+                },
+                (error) => {
+                    setError(error);
+                }
+            )
+    }
+
+    const fetchReservations = () => {
+        let headers = new Headers();
+        let auth = Buffer.from("admin:admin").toString("base64");
+        headers.append("Authorization", "Basic " + auth);
+
+        fetch("http://localhost:8080/api/v1/reservation", { method: "GET", headers: headers })
+            .then(res => res.json())
+            .then(
+                (result) => {
+                    setReservations(result);
+                },
+                (error) => {
+                    setError(error);
+                }
+            )
+    }
+
+    const handleSubmit = (product: Product) => {
+        fetchProducts();
+    }
 
     useEffect(() => {
-        FetchInventory();
-        FetchReservations();
-        SubscribeInventory();
-        SubscribeReservations();
+        fetchProducts();
+        fetchReservations();
+        
+        wsInv.current = new WebSocket('ws://localhost:8080/api/v1/inventory/subscribe');
+        wsInv.current.onclose = (event) => console.log('subscription to inventory closed');
+
+        wsRes.current = new WebSocket('ws://localhost:8080/api/v1/reservation/subscribe');
+        wsRes.current.onclose = (event) => console.log('subscription to reservations closed');
     }, []);
 
     useEffect(() => {
@@ -84,62 +120,12 @@ const ProductDash = () => {
         
     });
 
-    const SubscribeInventory = () => {
-        console.log("subscribing to inventory");
-        wsInv.current = new WebSocket('ws://localhost:8080/api/v1/inventory/subscribe');
-        wsInv.current.onclose = (event) => console.log('subscription to inventory closed');
-        console.log("subscribed to inventory");
-    }
-
-    const SubscribeReservations = () => {
-        console.log("subscribing to reservations");
-        wsRes.current = new WebSocket('ws://localhost:8080/api/v1/reservation/subscribe');
-        wsRes.current.onclose = (event) => console.log('subscription to reservations closed');
-        console.log("subscribed to reservations");
-    }
-
-    const FetchInventory = () => {
-        if (isFetchingInventory) return;
-        setIsFetchingInventory(true);
-
-        fetch("http://localhost:8080/api/v1/inventory", { method: "GET", headers: headers })
-            .then(res => res.json())
-            .then(
-                (result) => {
-                    setIsFetchingInventory(false);
-                    setProducts(result);
-                },
-                (error) => {
-                    setIsFetchingInventory(false);
-                    setError(error);
-                }
-            )
-    }
-
-    const FetchReservations = () => {
-        if (isFetchingReservations) return;
-        setIsFetchingReservations(true);
-
-        fetch("http://localhost:8080/api/v1/reservation", { method: "GET", headers: headers })
-            .then(res => res.json())
-            .then(
-                (result) => {
-                    setIsFetchingReservations(false);
-                    setReservations(result);
-                },
-                (error) => {
-                    setIsFetchingReservations(false);
-                    setError(error);
-                }
-            )
-    }
-
     if (error) {
         return <div>Error: {error.error}</div>;
     } else {
         return (
             <>
-                <ProductForm product={{} as Product} />
+                <ProductForm product={{} as Product} onSave={handleSubmit} />
                 <ProductList products={products} />
                 <CurrentInventory products={products} reservations={reservations} />
                 <ReservationList reservations={reservations} />

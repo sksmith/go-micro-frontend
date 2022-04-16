@@ -5,11 +5,12 @@ import { Buffer } from "buffer";
 import { useForm } from "react-hook-form";
 
 interface ProductProps {
+    onSave: (product: Product) => void;
     product: Product;
 }
 
-const ProductForm = ({ product }: ProductProps) => {
-    const { register, handleSubmit, watch, formState: { errors } } = useForm();
+const ProductForm = ({ onSave, product }: ProductProps) => {
+    const { register, handleSubmit, reset, formState: { errors } } = useForm();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<Error>();
 
@@ -19,11 +20,13 @@ const ProductForm = ({ product }: ProductProps) => {
 
     const onSubmit = async (data: any) => {
         setLoading(true);
+        reset();
         fetch("http://localhost:8080/api/v1/inventory", { method: "PUT", headers: headers, body: JSON.stringify(data) })
             .then(res => res.json())
             .then(
                 (result) => {
                     setLoading(false);
+                    onSave(product);
                 },
                 (error) => {
                     setLoading(false);
